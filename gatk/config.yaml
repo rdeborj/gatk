@@ -1,0 +1,4 @@
+---
+known_indels:
+    - /cluster/tools/data/genomes/human/hg19/variantcallingdata/1000G_phase1.indels.hg19.vcf
+    - /cluster/tools/data/genomes/human/hg19/variantcallingdata/Mills_and_1000G_gold_standard.indels.hg19.vcf

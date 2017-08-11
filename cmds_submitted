@@ -1,3 +1,5 @@
+## STAR ALIGNER
+
 STAR
     --runMode  alignReads
     --readFilesIn ./LTS-035_T_RNA_GCCAAT_L007_R1.fastq.gz  ./LTS-035_T_RNA_GCCAAT_L007_R2.fastq.gz
@@ -15,12 +17,14 @@ STAR
     --genomeSAsparseD 2
     --limitBAMsortRAM  35000000000 
 
+# STAR FUSION DETECTION
 STAR-Fusion
     --chimeric_junction  STAR/LTS-035_T_RNA_GCCAAT_L007Chimeric.out.junction
     --chimeric_out_sam STAR/LTS-035_T_RNA_GCCAAT_L007Chimeric.out.sam
     --ref_GTF /cluster/projects/carlsgroup/workinprogress/abdel/20170418_INSPIRE_RNA/gencode.v26.annotation.gtf
     --out_prefix STAR_fusion/LTS-035_T_RNA_GCCAAT_L007  
 
+# RSEM GENE EXPRESSION
 rsem-calculate-expression
     -p 8
     --strand-specific
@@ -28,6 +32,8 @@ rsem-calculate-expression
     --paired-end STAR/LTS-035_T_RNA_GCCAAT_L007Aligned.toTranscriptome.out.bam
     /cluster/projects/carlsgroup/workinprogress/abdel/20170418_INSPIRE_RNA/RSEM_REF_hg38_gencode/hg38 RSEM/LTS-035_T_RNA_GCCAAT_L007
 
+
+## Picard
 java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmp75wBll5T -jar $picard_dir/picard.jar
     AddOrReplaceReadGroups
     INPUT=STAR/LTS-035_T_RNA_GCCAAT_L007Aligned.sortedByCoord.out.bam
@@ -39,13 +45,44 @@ java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmp75wBll5T -jar $picard_dir/picard
     RGPU=Project
     RGSM=LTS-035_T_RNA_GCCAAT_L007 
 
-java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmplV1Tvkko -jar $picard_dir/picard.jar MarkDuplicates INPUT=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.sorted.bam OUTPUT=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.bam METRICS_FILE=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.dedup CREATE_INDEX=TRUE MAX_RECORDS_IN_RAM=150000  VALIDATION_STRINGENCY=SILENT
+java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmplV1Tvkko -jar $picard_dir/picard.jar
+    MarkDuplicates
+    INPUT=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.sorted.bam
+    OUTPUT=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.bam
+    METRICS_FILE=PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.dedup
+    CREATE_INDEX=TRUE
+    MAX_RECORDS_IN_RAM=150000
+    VALIDATION_STRINGENCY=SILENT
 
-java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmp4EuQdOpi -jar $gatk_dir/GenomeAnalysisTK.jar -T SplitNCigarReads  -I PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.bam -R  /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa -o PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam -rf ReassignOneMappingQuality -rf UnmappedRead -RMQF 255 -RMQT 60 -U ALLOW_N_CIGAR_READS
 
-java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpdOwV6k99 -jar $gatk_dir/GenomeAnalysisTK.jar -T RealignerTargetCreator  -nt 4  -R /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa -I  /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam -o PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.intervals --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Homo_sapiens_assembly38.known_indels.vcf --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Mills_and_1000G_gold_standard.indels.hg38.vcf --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Homo_sapiens_assembly38.dbsnp.vcf.gz 
+## GATK
+java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmp4EuQdOpi -jar $gatk_dir/GenomeAnalysisTK.jar
+    -T SplitNCigarReads
+    -I PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.bam
+    -R  /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa
+    -o PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam
+    -rf ReassignOneMappingQuality
+    -rf UnmappedRead
+    -RMQF 255
+    -RMQT 60
+    -U ALLOW_N_CIGAR_READS
 
-java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpdOwV6k99 -jar $gatk_dir/GenomeAnalysisTK.jar -T IndelRealigner -I /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam   -o /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.realigned.bam -targetIntervals PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.intervals -R /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa  
+java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpdOwV6k99 -jar $gatk_dir/GenomeAnalysisTK.jar
+    -T RealignerTargetCreator
+    -nt 4
+    -R /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa
+    -I  /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam
+    -o PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.intervals
+    --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Homo_sapiens_assembly38.known_indels.vcf
+    --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Mills_and_1000G_gold_standard.indels.hg38.vcf
+    --known /cluster/tools/data/genomes/human/hg38/hg38bundle/Homo_sapiens_assembly38.dbsnp.vcf.gz 
+
+java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpdOwV6k99 -jar $gatk_dir/GenomeAnalysisTK.jar
+    -T IndelRealigner
+    -I /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.bam
+    -o /cluster/projects/carlsgroup/workinprogress/richard/151118_SN1068_0256_AC70VEACXX_Oza_LTS_Cindy/Sample_LTS-035_T_RNA/PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.realigned.bam
+    -targetIntervals PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.intervals
+    -R /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa  
 
 java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpyPVnGJTb  -jar $gatk_dir/GenomeAnalysisTK.jar
     -T BaseRecalibrator
@@ -66,6 +103,8 @@ java -Xmx20g -Djava.io.tmpdir=PROCESSED_BAMS/tmpyPVnGJTb -jar $gatk_dir/GenomeAn
     -BQSR PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.recal_data.table
     -o PROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.split.realigned.recal.bam
 
+
+## TOPHAT
 tophat2
     -p 8
     --fusion-search
@@ -84,6 +123,8 @@ tophat2
     ./LTS-035_T_RNA_GCCAAT_L007_R1.fastq.gz
     ./LTS-035_T_RNA_GCCAAT_L007_R2.fastq.gz 
 
+
+## GATK HAPLOTYPE CALLER
 java  -Xmx8g -Djava.io.tmpdir=HAPLOTYPE_CALLER/tmp5IG4iGAJ -jar $gatk_dir/GenomeAnalysisTK.jar
     -T HaplotypeCaller
     -R  /cluster/tools/data/genomes/human/hg38/iGenomes/Sequence/WholeGenomeFasta/genome.fa
@@ -110,6 +151,8 @@ printf "Sample ID\tBam File\tNotes\n" > RNASeQC/LTS-035_T_RNA_GCCAAT_L007.sample
 
 printf "LTS-035_T_RNA_GCCAAT_L007\tPROCESSED_BAMS/LTS-035_T_RNA_GCCAAT_L007.readgroup.added.marked.sorted.bam\t \n"  >> RNASeQC/LTS-035_T_RNA_GCCAAT_L007.sampleFile.list
 
+
+# RNASEQC
 java  -Xmx8g -Djava.io.tmpdir=RNASeQC/tmp7JESc1Ll -jar $rnaseqc_dir/RNA-SeQC.jar
     -bwa bwa
     -o RNASeQC/LTS-035_T_RNA_GCCAAT_L007

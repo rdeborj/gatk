@@ -1,6 +1,10 @@
 """
-A Python 3 wrapper for the Genome Analysis Toolkit.
+A Python 3 wrapper for the Genome Analysis Toolkit (GATK v3.7).
 """
+
+###############################################################################
+### Class definition
+###############################################################################
 
 class Gatk(object):
     """
@@ -11,7 +15,7 @@ class Gatk(object):
         object = gatk()
 
     DESCRIPTION
-        A class that wraps the methods and attributes of the Gneome Analysis
+        A class that wraps the methods and attributes of the Genome Analysis
         toolkit.
     """
 
@@ -49,25 +53,66 @@ class Gatk(object):
 
         return None
 
-    def file_cleanup(self, files):
+    def split_n_cigar_reads(self,
+                            bams,
+                            output,
+                            readfilters=('ReassignOneMappingQuality', 'UnmappedRead'),
+                            memory=20,
+                            original_mapq=255,
+                            reassigned_mapq=60):
         """
-        A method for cleaning up intermediate files.
+        Method wrapper for the GATK's SplitNCigarReads subprogram.
 
         USAGE:
-            object.file_cleanup(
-                files
+            object.split_n_cigar_reads(
+                bams,
+                output,
+                readfilters,
+                memory,
+                original_mapq,
+                reassigned_mapq
                 )
 
         INPUT:
-            * files: an array of files to cleanup
+            * bams:             list of input BAM files (required)
+            * output:           output filename
+            * readfilters:      list of read filters to apply (default: None)
+            * memory:           amount of memory to allocate to the Java engine (default: 20)
+            * original_mapq:    mapping quality to change from (default: 255)
+            * reassigned_mapq:  mapping quality to change to (default: 60)
 
         OUTPUT:
-            Returns a list containing a command for file cleanup.
+            Returns a dictionary containing the command and output filename.
         """
-        program = 'rm -f'
-        files_string = ' '.join([files])
-        cmd = ' '.join([program, files_string])
-        return {"command":cmd}
+        gatk_memory = ''.join(['-Xmx', str(memory), 'g'])
+        gatk_tmp = ''.join(['-Djava.io.tmpdir=', self.tmpdir])
+        output_filename = ''
+        program = ' '.join([
+            self.java,
+            gatk_memory,
+            gatk_tmp,
+            '-jar', str(self.gatk)
+            ])
+
+        # create input BAM file string
+        input_option = " ".join(['-I ' + input_bam for input_bam in bams])
+
+        # build the option for read filter files
+        read_filter_option = " ".join(['-rf ' + readfilter for readfilter in readfilters])
+
+        output_filename = '/'.join([self.output_dir, output])
+        options = ' '.join([
+            '-T SplitNCigarReads',
+            input_option,
+            '-R', self.reference,
+            '-o', output_filename,
+            read_filter_option,
+            '--reassign_mapping_quality_from', str(original_mapq),
+            '--reassign_mapping_quality_to', str(reassigned_mapq),
+            '-U ALLOW_N_CIGAR_READS'
+            ])
+        cmd = ' '.join([program, options])
+        return {"command":cmd, "output":output_filename}
 
 
     def realigner_target_creator(self,
@@ -129,7 +174,7 @@ class Gatk(object):
             options = " ".join([options, knownsites_option])
 
         cmd = ' '.join([program, options])
-        return {"command": cmd, "output":output}
+        return {"command": cmd, "output":output_filename}
 
 
     def indel_realigner(self,
@@ -168,19 +213,21 @@ class Gatk(object):
 
         input_option = " ".join(['-I ' + input_bam for input_bam in bams])
 
+        output_filename = '/'.join([self.output_dir, output])
         options = ' '.join([
             '-T IndelRealigner',
             input_option,
-            '-o', output,
+            '-o', '/'.join([self.output_dir, output]),
             '-targetIntervals', intervals,
             '-R', self.reference
             ])
         cmd = ' '.join([program, options])
-        return {'command':cmd, 'output':output}
+        return {'command':cmd, 'output':output_filename}
 
 
     def base_quality_recalibration(self,
-                                   bam, output,
+                                   bam,
+                                   output,
                                    memory=20,
                                    knownsites=None):
         """
@@ -200,6 +247,7 @@ class Gatk(object):
         """
         java_memory = ''.join(['-Xmx', str(memory), 'g'])
         java_tmp = ''.join(['-Djava.io.tmpdir=', self.tmpdir])
+        output_filename = '/'.join([self.output_dir, output])
         program = ' '.join([
             self.java,
             java_memory,
@@ -209,23 +257,25 @@ class Gatk(object):
         options = ' '.join([
             '-T', 'BaseRecalibrator',
             '-I', bam,
-            '-o', output,
+            '-o', output_filename,
             '-R', self.reference,
-            # '-rf', 'BadCigar',
             '-U ALLOW_N_CIGAR_READS'
-            # '-cov ReadGroupCovariate',
-            # '-cov ContextCovariate',
-            # '-cov CycleCovariate',
-            # '-cov QualityScoreCovariate'
             ])
+
         if knownsites:
             knownsites_option = " ".join(['--knownSites ' + site for site in knownsites])
             options = " ".join([options, knownsites_option])
         cmd = ' '.join([program, options])
-        return {'command':cmd, 'output':output}
+
+        return {'command':cmd, 'output':output_filename}
 
 
-    def print_reads(self, bam, output, reference, recaldata):
+    def print_reads(self,
+                    bam,
+                    output,
+                    recaldata,
+                    memory=20,
+                    threads=4):
         """
         A method that wraps GATK's PrintReads subprogram.
 
@@ -240,16 +290,120 @@ class Gatk(object):
         OUTPUT:
             A BAM file containing base quality recalibrated BAM files.
         """
-        pass
-        # java_memory = ''.join([memory, 'g'])
-        # program = ' '.join([
-        #     '-nct', threads,
-        #     '-I', input,
-        #     '-R', self.reference,
-        #     '-BQSR', recaldata,
-        #     '-o', recal,
-        #     '-rf BadCigar',
-        #     coverage
-        #     ])
+        java_memory = ''.join(['-Xmx', str(memory), 'g'])
+        java_tmp = ''.join(['-Djava.io.tmpdir=', self.tmpdir])
+        output_filename = '/'.join([self.output_dir, output])
+        program = ' '.join([
+            self.java,
+            java_memory,
+            java_tmp,
+            '-jar', str(self.gatk)
+            ])
+        options = ' '.join([
+            '-T PrintReads',
+            '-I', bam,
+            '-o', output_filename,
+            '-R', self.reference,
+            '-BQSR', recaldata,
+            '-nct', str(threads)
+            # '-rf BadCigar'
+            ])
+        options = ' '.join(['-rf', ])
+        cmd = ' '.join([program, options])
 
-        #return {"cmd": cmd, "output": output}
+        return {"command": cmd, "output": output}
+
+
+    def haplotype_caller(self,
+                         bams,
+                         dbsnp,
+                         output,
+                         stand_call_conf=20,
+                         stand_emit_conf=20,
+                         memory=8):
+        """
+        A method wrapper for the HaplotypeCaller from GATK.
+
+        USAGE:
+            object.haplotype_caller(
+                 arg1
+                )
+
+        INPUT:
+            *  arg1:  description of arg1
+
+        OUTPUT:
+             list of return values
+        """
+        java_memory = ''.join(['-Xmx', str(memory), 'g'])
+        java_tmpdir = ''.join(['-Djava.io.tmpdir=', self.tmpdir])
+        program = ' '.join([
+            self.java,
+            java_memory,
+            java_tmpdir,
+            '-jar', str(self.gatk)
+            ])
+        input_option = ' '.join(['-I ' + bam for bam in bams])
+        output_filename = '/'.join([self.output_dir, str(output)])
+        options = ' '.join([
+            '-T HaplotypeCaller',
+            input_option,
+            '--dbsnp', dbsnp,
+            '-R', self.reference,
+            '-o', output_filename,
+            '-stand_call_confg', str(stand_call_conf),
+            '-stand_emit_conf', str(stand_emit_conf),
+            '-dontUseSoftClippedBases'
+            ])
+        cmd = ' '.join([program, options])
+        return {"command":cmd, "output":output_filename}
+
+
+    def variant_filtration(self,
+                           variant,
+                           output,
+                           filters,
+                           memory=8,
+                           window=35,
+                           cluster=3):
+        """
+        A Python method that wraps the GATK VariantFiltration subprogram.
+
+        USAGE:
+            object.variant_filtration(
+                bams
+                )
+
+        INPUT:
+            * bams: a list of BAM files to process (required)
+
+        OUTPUT:
+            Returns a dictionary containing the command to execute and path to
+            the output file.
+        """
+        program = ' '.join([
+            self.java,
+            ''.join(['-Xmx', str(memory), 'g']),
+            ''.join(['-Djava.io.tmpdir=', self.tmpdir]),
+            '-jar', str(self.gatk)
+            ])
+        output_filename = '/'.join([self.output_dir, output])
+        filter_list = []
+        for key, value in filters.items():
+            filter_list.extend([
+                '--filterName',
+                key,
+                '--filterExpression',
+                ''.join(["\"", key, value, "\""])
+                ])
+        filter_option = ' '.join(filter_list)
+        options = ' '.join([
+            '-T VariantFiltration',
+            '-R', self.reference,
+            '--variant', variant,
+            '-o', output_filename,
+            '-window', str(window),
+            '-cluster', str(cluster),
+            filter_option])
+        cmd = ' '.join([program, options])
+        return {"command":cmd, "output":output_filename}
